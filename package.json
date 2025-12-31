@@ -1,4 +1,12 @@
 {
+  "name": "webhook-test",
+  "version": "1.0.0",
+  "description": "WhatsApp and Messenger Webhook Handler",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "node src/app.js"
+  },
   "dependencies": {
     "dotenv": "^17.2.3",
     "express": "^5.2.1"
