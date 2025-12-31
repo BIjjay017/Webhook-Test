@@ -7,11 +7,12 @@ require('dotenv').config();
 const app = express();
 app.use(express.json());
 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT;
 const verifyToken = process.env.VERIFY_TOKEN;
 
 app.use((req, res, next) => {
   console.log(`Incoming ${req.method} ${req.url}`);
+  console.log('Headers:', JSON.stringify(req.headers, null, 2));
   console.log('Body:', JSON.stringify(req.body, null, 2));
   next();
 });
