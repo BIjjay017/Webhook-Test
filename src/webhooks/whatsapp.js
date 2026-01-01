@@ -1,4 +1,4 @@
-const { handleIncomingMessage } = require('../orchestrator');
+import { detectIntentAndRespond } from '../ai/intentEngine.js';
 
 function extractMessageText(message = {}) {
   if (message.text?.body) return message.text.body;
@@ -11,24 +11,29 @@ function extractMessageText(message = {}) {
   return null;
 }
 
-module.exports = async function whatsappWebhook(req, res) {
+export default async function whatsappWebhook(req, res) {
   const entry = req.body.entry?.[0];
   const change = entry?.changes?.[0];
   const value = change?.value;
-  const message = value?.messages?.[0];
 
-  if (!message) return res.sendStatus(200);
+  if (!Array.isArray(value?.messages)) {
+    return res.sendStatus(200);
+  }
 
-  const normalized = {
-    platform: 'whatsapp',
-    userId: message.from,
-    messageId: message.id,
-    text: extractMessageText(message),
-    timestamp: Date.now()
-  };
+  for (const message of value.messages) {
+    const text = extractMessageText(message);
+    if (!text) continue;
 
-  console.log('[Normalized WhatsApp]', normalized);
+    console.log('Incoming user message:', text);
 
-  await handleIncomingMessage(normalized);
+    // 🔹 Call Groq AI
+    const aiResult = await detectIntentAndRespond(text);
+
+    console.log('AI Intent:', aiResult.intent);
+    console.log('AI Response:', aiResult.response);
+
+    // For now just log the response; later this can be sent via WhatsApp Cloud API.
+  }
   res.sendStatus(200);
-};
+}
+
