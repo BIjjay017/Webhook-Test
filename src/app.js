@@ -13,20 +13,10 @@ app.use(express.json());
 const port = process.env.PORT || 3000;
 const verifyToken = process.env.VERIFY_TOKEN;
 
-app.use((req, res, next) => {
-  console.log(`Incoming ${req.method} ${req.url}`);
-  console.log('Headers:', JSON.stringify(req.headers, null, 2));
-  console.log('Body:', JSON.stringify(req.body, null, 2));
-  next();
-});
-
-
 /* ======================
    WEBHOOK VERIFICATION
 ====================== */
 app.get('/webhook', (req, res) => {
-  console.log('🔥 POST /webhook RECEIVED 🔥');
-  console.log("Message received from real users.")
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
@@ -56,18 +46,24 @@ app.post('/webhook', async (req, res) => {
         if (!text) continue;
 
         const userId = message.from;
+        const userName = value?.contacts?.[0]?.profile?.name || 'Unknown';
+        const messageType = message.type || 'text';
+        const messageId = message.id;
 
-        console.log('User message:', text);
+        console.log(`\n━━━ INCOMING MESSAGE ━━━`);
+        console.log(`📱 From: ${userName} (${userId})`);
+        console.log(`📝 Type: ${messageType}`);
+        console.log(`💬 Message: ${text}`);
 
         const aiResult = await detectIntentAndRespond(text);
 
-        console.log('AI Intent:', aiResult.intent);
-        console.log('AI Response:', aiResult.response);
+        console.log(`━━━ AI RESPONSE ━━━`);
+        console.log(`🎯 Intent: ${aiResult.intent}`);
+        console.log(`💡 Response: ${aiResult.response}`);
 
         // 🔥 Send reply back to WhatsApp
         await sendWhatsAppMessage(userId, aiResult.response);
-
-        console.log(`[Reply → WhatsApp] ${userId}: ${aiResult.response}`);
+        console.log(`✅ Reply sent to ${userId}\n`);
       }
     }
 
