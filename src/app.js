@@ -10,7 +10,7 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
-const port = process.env.PORT;
+const port = process.env.PORT || 3000;
 const verifyToken = process.env.VERIFY_TOKEN;
 
 app.use((req, res, next) => {
@@ -25,6 +25,8 @@ app.use((req, res, next) => {
    WEBHOOK VERIFICATION
 ====================== */
 app.get('/webhook', (req, res) => {
+  console.log('🔥 POST /webhook RECEIVED 🔥');
+  console.log("Message received from real users.")
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
