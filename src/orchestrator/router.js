@@ -61,15 +61,23 @@ const toolHandlers = {
 
   // Step 2: Show momo varieties with images first, then selection list
   show_momo_varieties: async (args, userId, context) => {
-    // Send an appetizing image of momos first
-    await sendWhatsAppImageMessage(
-      userId,
-      'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=800&q=80',
-      '🥟 *Our Fresh Handmade Momos!*\n\n✨ Steamed • Fried • Tandoori • Chocolate\n\nAll prepared with love using authentic recipes. Select your favorites below!'
-    );
+    // Send images of each momo type
+    await sendWhatsAppMessage(userId, '🥟 *Our Delicious Momo Menu!*\n\nHere are all our freshly prepared varieties:');
+    
+    // Small delay between messages
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    // Send each momo image with its details
+    for (const [key, momo] of Object.entries(momoImages)) {
+      await sendWhatsAppImageMessage(
+        userId,
+        momo.imageUrl,
+        `*${momo.name}* - ${momo.price}\n${momo.description}`
+      );
+      await delay(300); // Small delay to ensure order
+    }
 
-    // Small delay to ensure image arrives first
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await delay(500);
 
     // Then send the selection list
     const sections = [
