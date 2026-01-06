@@ -2,7 +2,6 @@ import { detectIntentAndRespond } from '../ai/intentEngine.js';
 import {
   sendWhatsAppMessage,
   sendWhatsAppListMessage,
-  sendWhatsAppCarouselMessage,
   sendOrderConfirmationMessage
 } from '../whatsapp/sendmessage.js';
 import { momoImages } from '../assets/momoImages.js';
@@ -58,36 +57,63 @@ const toolHandlers = {
     };
   },
 
-  // Step 2: Show momo varieties carousel
+  // Step 2: Show momo varieties as a List (not carousel - carousels don't support reply buttons)
   show_momo_varieties: async (args, userId, context) => {
-    const cards = Object.entries(momoImages).map(([key, momo], index) => ({
-      card_index: index,
-      header: {
-        type: 'image',
-        image: {
-          link: momo.imageUrl
-        }
-      },
-      body: {
-        text: `${momo.name} - ${momo.price}\n${momo.description}`
-      },
-      action: {
-        buttons: [
+    const sections = [
+      {
+        title: 'Steamed Momos',
+        rows: [
           {
-            type: 'quick_reply',
-            reply: {
-              id: `add_${key}`,
-              title: 'Add to Order'
-            }
+            id: 'add_steamedVegMomo',
+            title: 'Steamed Veg Momo',
+            description: `${momoImages.steamedVegMomo.price} - Fresh vegetables & herbs`
+          },
+          {
+            id: 'add_steamedChickenMomo',
+            title: 'Steamed Chicken Momo',
+            description: `${momoImages.steamedChickenMomo.price} - Juicy chicken filling`
+          }
+        ]
+      },
+      {
+        title: 'Fried & Tandoori',
+        rows: [
+          {
+            id: 'add_friedMomo',
+            title: 'Fried Momo',
+            description: `${momoImages.friedMomo.price} - Crispy golden fried`
+          },
+          {
+            id: 'add_tandooriMomo',
+            title: 'Tandoori Momo',
+            description: `${momoImages.tandooriMomo.price} - Smoky chargrilled`
+          },
+          {
+            id: 'add_panFriedMomo',
+            title: 'Pan Fried Momo',
+            description: `${momoImages.panFriedMomo.price} - Crispy bottom, soft top`
+          }
+        ]
+      },
+      {
+        title: 'Dessert',
+        rows: [
+          {
+            id: 'add_chocolateMomo',
+            title: 'Chocolate Momo',
+            description: `${momoImages.chocolateMomo.price} - Sweet chocolate filled`
           }
         ]
       }
-    }));
+    ];
 
-    await sendWhatsAppCarouselMessage(
+    await sendWhatsAppListMessage(
       userId,
-      '🥟 Our Momo Varieties - Tap "Add to Order" to select your favorites!',
-      cards
+      '🥟 Momo Menu',
+      'Choose your favorite momo variety! All momos are freshly prepared and served with special chutney.',
+      'Tap to add to order',
+      'Select Momo',
+      sections
     );
 
     return {
