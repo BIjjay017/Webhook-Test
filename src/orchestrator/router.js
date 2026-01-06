@@ -3,9 +3,7 @@ import {
   sendWhatsAppMessage,
   sendWhatsAppListMessage,
   sendWhatsAppCarouselMessage,
-  sendOrderConfirmationMessage,
-  sendRestaurantMenuListMessage,
-  sendMomoCarouselMessage
+  sendOrderConfirmationMessage
 } from '../whatsapp/sendmessage.js';
 import { momoImages } from '../assets/momoImages.js';
 
@@ -164,7 +162,10 @@ const toolHandlers = {
 
   // Simple text reply
   send_text_reply: async (args, userId, context) => {
-    await sendWhatsAppMessage(userId, args.message);
+    const message = args.message || "Hello! Welcome to Momo House 🥟 Type 'menu' to see our delicious options!";
+    console.log(`━━━ SENDING TEXT REPLY ━━━`);
+    console.log(`💬 Message: ${message}`);
+    await sendWhatsAppMessage(userId, message);
     return {
       reply: null,
       updatedContext: context
@@ -194,9 +195,13 @@ function parseInteractiveReply(message) {
 }
 
 async function routeIntent({ text, context, userId, interactiveReply }) {
+  console.log(`━━━ ROUTING MESSAGE ━━━`);
+  console.log(`📍 Context stage: ${context.stage || 'initial'}`);
+
   // Handle interactive replies (button clicks, list selections)
   if (interactiveReply) {
     const { id, title } = interactiveReply;
+    console.log(`🔘 Interactive reply: ${id} - ${title}`);
 
     // User selected Momos from menu
     if (id === 'cat_momos') {
@@ -234,7 +239,13 @@ async function routeIntent({ text, context, userId, interactiveReply }) {
   }
 
   // Use LLM to detect intent and decide which tool to call
+  console.log(`🤖 Asking LLM for intent...`);
   const decision = await detectIntentAndRespond(text, context);
+  
+  console.log(`━━━ LLM DECISION ━━━`);
+  console.log(`🎯 Intent: ${decision.intent}`);
+  console.log(`🔧 Tool: ${decision.toolCall?.name || 'none'}`);
+  console.log(`📝 Args: ${JSON.stringify(decision.toolCall?.arguments || {})}`);
 
   if (decision.toolCall && toolHandlers[decision.toolCall.name]) {
     return await toolHandlers[decision.toolCall.name](
@@ -244,12 +255,13 @@ async function routeIntent({ text, context, userId, interactiveReply }) {
     );
   }
 
-  // Fallback
+  // Fallback - send a default greeting if no tool matched
+  const fallbackMessage = decision.response || "Hello! Welcome to Momo House 🥟 Type 'menu' to see our delicious options!";
+  await sendWhatsAppMessage(userId, fallbackMessage);
   return {
-    reply: decision.response || "Sorry, I didn't understand that. Type 'menu' to see our options!",
+    reply: null,
     updatedContext: context
   };
 }
 
 export { routeIntent, parseInteractiveReply };
-

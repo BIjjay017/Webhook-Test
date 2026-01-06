@@ -1,8 +1,7 @@
 import express from 'express';
 import whatsappWebhook from './webhooks/whatsapp.js';
 import messengerWebhook from './webhooks/messenger.js';
-import { detectIntentAndRespond } from './ai/intentEngine.js';
-import { sendWhatsAppMessage } from './whatsapp/sendmessage.js';
+import { handleIncomingMessage } from './orchestrator/index.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -42,28 +41,49 @@ app.post('/webhook', async (req, res) => {
 
     if (Array.isArray(messages)) {
       for (const message of messages) {
-        const text = message.text?.body;
-        if (!text) continue;
-
         const userId = message.from;
         const userName = value?.contacts?.[0]?.profile?.name || 'Unknown';
         const messageType = message.type || 'text';
-        const messageId = message.id;
 
         console.log(`\n━━━ INCOMING MESSAGE ━━━`);
         console.log(`📱 From: ${userName} (${userId})`);
         console.log(`📝 Type: ${messageType}`);
-        console.log(`💬 Message: ${text}`);
 
-        const aiResult = await detectIntentAndRespond(text);
+        // Build message object for orchestrator
+        const msgObject = {
+          userId,
+          platform: 'whatsapp',
+          type: messageType
+        };
 
-        console.log(`━━━ AI RESPONSE ━━━`);
-        console.log(`🎯 Intent: ${aiResult.intent}`);
-        console.log(`💡 Response: ${aiResult.response}`);
+        // Handle different message types
+        if (messageType === 'text') {
+          msgObject.text = message.text?.body || '';
+          console.log(`💬 Message: ${msgObject.text}`);
+        } else if (messageType === 'interactive') {
+          // Handle button replies and list replies
+          msgObject.interactive = message.interactive;
+          if (message.interactive?.type === 'button_reply') {
+            msgObject.text = message.interactive.button_reply.title;
+            console.log(`🔘 Button: ${message.interactive.button_reply.title} (${message.interactive.button_reply.id})`);
+          } else if (message.interactive?.type === 'list_reply') {
+            msgObject.text = message.interactive.list_reply.title;
+            console.log(`📋 List Selection: ${message.interactive.list_reply.title} (${message.interactive.list_reply.id})`);
+          }
+        }
 
-        // 🔥 Send reply back to WhatsApp
-        await sendWhatsAppMessage(userId, aiResult.response);
-        console.log(`✅ Reply sent to ${userId}\n`);
+        // Skip if no processable content
+        if (!msgObject.text && !msgObject.interactive) {
+          console.log(`⏭️ Skipping unsupported message type`);
+          continue;
+        }
+
+        try {
+          await handleIncomingMessage(msgObject);
+          console.log(`✅ Message processed for ${userId}\n`);
+        } catch (error) {
+          console.error(`❌ Error processing message:`, error);
+        }
       }
     }
 
