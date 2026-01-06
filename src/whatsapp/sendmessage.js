@@ -1,6 +1,53 @@
 import fetch from 'node-fetch';
 import { momoImages } from '../assets/momoImages.js';
 
+// Send an image message with optional caption
+export async function sendWhatsAppImageMessage(to, imageUrl, caption) {
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+
+  if (!phoneNumberId || !accessToken) {
+    console.error('Missing WhatsApp credentials (WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_ACCESS_TOKEN)');
+    return;
+  }
+
+  const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`;
+
+  const payload = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: to,
+    type: 'image',
+    image: {
+      link: imageUrl,
+      caption: caption
+    }
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('WhatsApp API error:', error);
+      return;
+    }
+
+    const result = await response.json();
+    console.log('Image message sent successfully:', result.messages?.[0]?.id);
+    return result;
+  } catch (error) {
+    console.error('Failed to send WhatsApp image message:', error);
+  }
+}
+
 // Send interactive button message
 export async function sendWhatsAppButtonMessage(to, headerText, bodyText, footerText, buttons) {
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;

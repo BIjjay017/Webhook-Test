@@ -2,6 +2,8 @@ import { detectIntentAndRespond } from '../ai/intentEngine.js';
 import {
   sendWhatsAppMessage,
   sendWhatsAppListMessage,
+  sendWhatsAppImageMessage,
+  sendWhatsAppButtonMessage,
   sendOrderConfirmationMessage
 } from '../whatsapp/sendmessage.js';
 import { momoImages } from '../assets/momoImages.js';
@@ -57,8 +59,19 @@ const toolHandlers = {
     };
   },
 
-  // Step 2: Show momo varieties as a List (not carousel - carousels don't support reply buttons)
+  // Step 2: Show momo varieties with images first, then selection list
   show_momo_varieties: async (args, userId, context) => {
+    // Send an appetizing image of momos first
+    await sendWhatsAppImageMessage(
+      userId,
+      'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=800&q=80',
+      '🥟 *Our Fresh Handmade Momos!*\n\n✨ Steamed • Fried • Tandoori • Chocolate\n\nAll prepared with love using authentic recipes. Select your favorites below!'
+    );
+
+    // Small delay to ensure image arrives first
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Then send the selection list
     const sections = [
       {
         title: 'Steamed Momos',
@@ -109,10 +122,10 @@ const toolHandlers = {
 
     await sendWhatsAppListMessage(
       userId,
-      '🥟 Momo Menu',
-      'Choose your favorite momo variety! All momos are freshly prepared and served with special chutney.',
-      'Tap to add to order',
-      'Select Momo',
+      '🥟 Select Your Momo',
+      'Choose a momo to add to your cart. You can add multiple items!',
+      '10 pieces per plate',
+      'Choose Momo',
       sections
     );
 
@@ -127,6 +140,55 @@ const toolHandlers = {
     };
   },
 
+  // Step 2.5: Show cart and ask if user wants to add more or checkout
+  show_cart_options: async (args, userId, context) => {
+    const cart = context.cart || [];
+    
+    if (cart.length === 0) {
+      await sendWhatsAppMessage(userId, "Your cart is empty! Let me show you our menu.");
+      return await toolHandlers.show_momo_varieties({}, userId, context);
+    }
+
+    const cartLines = cart.map(item => 
+      `• ${item.name} x${item.quantity} - Rs.${item.price * item.quantity}`
+    ).join('\n');
+    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+    const buttons = [
+      {
+        type: 'reply',
+        reply: {
+          id: 'add_more_items',
+          title: 'Add More Items ➕'
+        }
+      },
+      {
+        type: 'reply',
+        reply: {
+          id: 'proceed_checkout',
+          title: 'Checkout 🛒'
+        }
+      }
+    ];
+
+    await sendWhatsAppButtonMessage(
+      userId,
+      '🛒 Your Cart',
+      `${cartLines}\n━━━━━━━━━━━━━━━\nSubtotal: Rs.${total}\n\nWould you like to add more items or proceed to checkout?`,
+      'You can add more items anytime!',
+      buttons
+    );
+
+    return {
+      reply: null,
+      updatedContext: {
+        ...context,
+        stage: 'cart_options',
+        lastAction: 'show_cart_options'
+      }
+    };
+  },
+
   // Step 3: Confirm order with buttons
   confirm_order: async (args, userId, context) => {
     const items = args.items || context.cart || [
@@ -134,11 +196,11 @@ const toolHandlers = {
     ];
 
     const orderLines = items.map(item => 
-      `• ${item.name} x${item.quantity} - ₹${item.price * item.quantity}`
+      `• ${item.name} x${item.quantity} - Rs.${item.price * item.quantity}`
     ).join('\n');
 
     const total = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const orderDetails = `${orderLines}\n━━━━━━━━━━━━━━━\nTotal: ₹${total}`;
+    const orderDetails = `${orderLines}\n━━━━━━━━━━━━━━━\nTotal: Rs.${total}`;
 
     await sendOrderConfirmationMessage(userId, orderDetails);
 
@@ -234,19 +296,40 @@ async function routeIntent({ text, context, userId, interactiveReply }) {
       return await toolHandlers.show_momo_varieties({}, userId, context);
     }
 
-    // User clicked Add to Order on a momo
+    // User clicked Add to Order on a momo - add to cart and show options
     if (id.startsWith('add_')) {
       const momoKey = id.replace('add_', '');
       const momo = momoImages[momoKey];
       if (momo) {
         const cart = context.cart || [];
-        cart.push({ 
-          name: momo.name, 
-          quantity: 1, 
-          price: parseInt(momo.price.replace('₹', '')) 
-        });
-        return await toolHandlers.confirm_order({ items: cart }, userId, { ...context, cart });
+        
+        // Check if item already exists in cart
+        const existingItem = cart.find(item => item.name === momo.name);
+        if (existingItem) {
+          existingItem.quantity += 1;
+        } else {
+          cart.push({ 
+            name: momo.name, 
+            quantity: 1, 
+            price: parseInt(momo.price.replace('Rs.', '')) 
+          });
+        }
+
+        // Show confirmation and cart options
+        await sendWhatsAppMessage(userId, `✅ Added *${momo.name}* to your cart!`);
+        
+        return await toolHandlers.show_cart_options({}, userId, { ...context, cart });
       }
+    }
+
+    // User wants to add more items
+    if (id === 'add_more_items') {
+      return await toolHandlers.show_momo_varieties({}, userId, context);
+    }
+
+    // User wants to checkout
+    if (id === 'proceed_checkout') {
+      return await toolHandlers.confirm_order({ items: context.cart }, userId, context);
     }
 
     // User confirmed or cancelled order
