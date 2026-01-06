@@ -1,7 +1,9 @@
+import { sendWhatsAppMessage } from '../whatsapp/sendmessage.js';
+
 async function sendReply(platform, userId, text) {
   if (platform === "whatsapp") {
     console.log(`[Reply → WhatsApp] ${userId}: ${text}`);
-    // call WhatsApp Send Message API
+    await sendWhatsAppMessage(userId, text);
   }
 
   if (platform === "messenger") {
@@ -10,4 +12,4 @@ async function sendReply(platform, userId, text) {
   }
 }
 
-module.exports = { sendReply };
+export { sendReply };
